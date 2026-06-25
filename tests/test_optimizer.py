@@ -68,6 +68,8 @@ class TestATSAnalyzer:
     def _make_mock_response(self, text):
         mock = MagicMock()
         mock.content[0].text = text
+        mock.usage.input_tokens = 100
+        mock.usage.output_tokens = 50
         return mock
 
     def test_analyze_returns_report_anthropic(self):
@@ -82,6 +84,9 @@ class TestATSAnalyzer:
                 report = analyze_resume("Some resume text", target_role="Engineer")
         assert isinstance(report, ATSReport)
         assert report.ats_score == 72
+        assert report.tokens_used["input_tokens"] == 100
+        assert report.tokens_used["output_tokens"] == 50
+        assert report.tokens_used["total_tokens"] == 150
 
     def test_analyze_returns_report_openai(self):
         from src.optimizer.analyzer import analyze_resume, ATSReport
@@ -89,6 +94,8 @@ class TestATSAnalyzer:
         mock_choice.message.content = MOCK_ANALYSIS_JSON
         mock_resp = MagicMock()
         mock_resp.choices = [mock_choice]
+        mock_resp.usage.prompt_tokens = 200
+        mock_resp.usage.completion_tokens = 80
         with patch("openai.OpenAI") as MockClient:
             instance = MockClient.return_value
             instance.chat.completions.create.return_value = mock_resp
@@ -99,6 +106,8 @@ class TestATSAnalyzer:
                 report = analyze_resume("Some resume text")
         assert isinstance(report, ATSReport)
         assert report.ats_score == 72
+        assert report.tokens_used["input_tokens"] == 200
+        assert report.tokens_used["output_tokens"] == 80
 
     def test_ats_report_grade_excellent(self):
         from src.optimizer.analyzer import ATSReport
@@ -195,6 +204,8 @@ class TestResumeRewriter:
     def _make_anthropic_mock(self, text):
         mock = MagicMock()
         mock.content[0].text = text
+        mock.usage.input_tokens = 300
+        mock.usage.output_tokens = 120
         return mock
 
     def test_rewrite_returns_resume_data(self):
@@ -206,10 +217,13 @@ class TestResumeRewriter:
                 mock_settings.AI_PROVIDER = "anthropic"
                 mock_settings.ANTHROPIC_API_KEY = "test-key"
                 mock_settings.ANTHROPIC_MODEL = "claude-test"
-                result = rewrite_resume("old resume text", target_role="Engineer")
+                result, tokens = rewrite_resume("old resume text", target_role="Engineer")
         assert isinstance(result, ResumeData)
         assert result.name == "Jane Smith"
         assert result.title == "Senior Software Engineer"
+        assert tokens["input_tokens"] == 300
+        assert tokens["output_tokens"] == 120
+        assert tokens["total_tokens"] == 420
 
     def test_rewrite_maps_experience_bullets(self):
         from src.optimizer.rewriter import rewrite_resume, ResumeData
@@ -220,7 +234,7 @@ class TestResumeRewriter:
                 mock_settings.AI_PROVIDER = "anthropic"
                 mock_settings.ANTHROPIC_API_KEY = "test-key"
                 mock_settings.ANTHROPIC_MODEL = "claude-test"
-                result = rewrite_resume("old resume text")
+                result, _ = rewrite_resume("old resume text")
         assert len(result.experience) == 1
         assert "Reduced latency by 40%" in result.experience[0].bullets
 
@@ -233,7 +247,7 @@ class TestResumeRewriter:
                 mock_settings.AI_PROVIDER = "anthropic"
                 mock_settings.ANTHROPIC_API_KEY = "test-key"
                 mock_settings.ANTHROPIC_MODEL = "claude-test"
-                result = rewrite_resume("old resume text")
+                result, _ = rewrite_resume("old resume text")
         assert "Programming Languages" in result.skills
         assert "Python" in result.skills["Programming Languages"]
 

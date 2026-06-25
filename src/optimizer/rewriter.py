@@ -83,7 +83,7 @@ def rewrite_resume(
     job_description: str = "",
     style: Style = "professional",
     analysis: ATSReport | None = None,
-) -> ResumeData:
+) -> tuple[ResumeData, dict]:
     """
     Rewrite a resume to be ATS-optimized.
 
@@ -95,7 +95,7 @@ def rewrite_resume(
         analysis:        Pre-computed ATS analysis (avoids duplicate LLM call).
 
     Returns:
-        ResumeData structured object ready for DOCX/PDF generation.
+        Tuple of (ResumeData, tokens_used dict) ready for DOCX/PDF generation.
     """
     missing_keywords = analysis.missing_keywords if analysis else []
 
@@ -107,13 +107,13 @@ def rewrite_resume(
         missing_keywords=", ".join(missing_keywords) if missing_keywords else "None identified",
     )
 
-    raw = _call_llm(prompt)
+    raw, tokens = _call_llm(prompt)
     data = _safe_parse(raw)
 
     if not data:
         raise ValueError("AI returned empty response. Check your API key and try again.")
 
-    return _map_to_resume_data(data)
+    return _map_to_resume_data(data), tokens
 
 
 def _map_to_resume_data(data: dict) -> ResumeData:

@@ -74,6 +74,7 @@ class AnalyzeResponse(BaseModel):
     missing_keywords: list[str]
     found_keywords: list[str]
     strengths: list[str]
+    tokens_used: dict
 
 
 class OptimizeResponse(BaseModel):
@@ -87,6 +88,7 @@ class OptimizeResponse(BaseModel):
     download_docx: Optional[str] = None
     download_pdf: Optional[str] = None
     message: str
+    tokens_used: dict
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -140,6 +142,7 @@ async def analyze(
         missing_keywords=report.missing_keywords,
         found_keywords=report.found_keywords,
         strengths=report.strengths,
+        tokens_used=report.tokens_used,
     )
 
 
@@ -175,7 +178,7 @@ async def optimize(
 
     # Step 2: Rewrite
     try:
-        resume_data = rewrite_resume(
+        resume_data, rewrite_tokens = rewrite_resume(
             text,
             target_role=target_role,
             job_description=job_description,
@@ -184,6 +187,18 @@ async def optimize(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Rewrite failed: {e}")
+
+    # Aggregate token usage from both LLM calls
+    at = report_before.tokens_used
+    rt = rewrite_tokens
+    total_tokens = {
+        "input_tokens": at.get("input_tokens", 0) + rt.get("input_tokens", 0),
+        "output_tokens": at.get("output_tokens", 0) + rt.get("output_tokens", 0),
+        "total_tokens": at.get("total_tokens", 0) + rt.get("total_tokens", 0),
+        "estimated_cost_usd": round(
+            at.get("estimated_cost_usd", 0.0) + rt.get("estimated_cost_usd", 0.0), 6
+        ),
+    }
 
     # Step 3: Generate files
     job_id = str(uuid.uuid4())[:8]
@@ -214,6 +229,7 @@ async def optimize(
         download_docx=docx_url,
         download_pdf=pdf_url,
         message=f"Resume optimized successfully. ATS score improved from {report_before.ats_score} → {score_after}.",
+        tokens_used=total_tokens,
     )
 
 

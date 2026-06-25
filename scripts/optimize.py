@@ -120,7 +120,7 @@ Examples:
     # Rewrite
     from src.optimizer.rewriter import rewrite_resume
     logger.info("Rewriting resume with AI (style: %s)...", args.style)
-    resume_data = rewrite_resume(
+    resume_data, rewrite_tokens = rewrite_resume(
         resume_text,
         target_role=args.role,
         job_description=job_description,
@@ -147,6 +147,13 @@ Examples:
         generate_pdf(resume_data, pdf_path)
         generated.append(("PDF", pdf_path))
 
+    # Aggregate tokens from both LLM calls
+    at = report.tokens_used
+    rt = rewrite_tokens
+    total_inp = at.get("input_tokens", 0) + rt.get("input_tokens", 0)
+    total_out = at.get("output_tokens", 0) + rt.get("output_tokens", 0)
+    total_cost = round(at.get("estimated_cost_usd", 0.0) + rt.get("estimated_cost_usd", 0.0), 6)
+
     print("\n" + "=" * 60)
     print("  OPTIMIZATION COMPLETE")
     print("=" * 60)
@@ -155,6 +162,7 @@ Examples:
     print(f"  Keywords added: {', '.join(report.missing_keywords[:6])}")
     for fmt, path in generated:
         print(f"  {fmt}: {path.resolve()}")
+    print(f"\n  Token Usage:  {total_inp:,} in / {total_out:,} out / {total_inp+total_out:,} total  (est. ${total_cost:.4f} USD)")
     print("=" * 60)
 
 

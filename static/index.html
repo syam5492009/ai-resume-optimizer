@@ -98,6 +98,14 @@
 
     .error-box { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--radius); padding: 14px 18px; color: #b91c1c; font-size: 0.9rem; margin-top: 16px; display: none; }
     .error-box.show { display: block; }
+
+    /* Token usage */
+    .token-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 8px; }
+    @media (max-width: 580px) { .token-grid { grid-template-columns: repeat(2, 1fr); } }
+    .token-stat { text-align: center; padding: 12px 8px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; }
+    .token-num { font-size: 1.15rem; font-weight: 700; color: var(--navy); }
+    .token-stat.cost .token-num { color: var(--green); }
+    .token-label { font-size: 0.72rem; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -208,6 +216,28 @@
     <div class="download-row" id="downloadRow" style="display:none">
       <a class="btn-download" id="dlDocx" href="#" target="_blank">⬇ Download DOCX</a>
       <a class="btn-download pdf" id="dlPdf" href="#" target="_blank">⬇ Download PDF</a>
+    </div>
+
+    <div id="tokenSection" style="display:none; margin-top:20px">
+      <label>API Token Usage</label>
+      <div class="token-grid">
+        <div class="token-stat">
+          <div class="token-num" id="tokIn">—</div>
+          <div class="token-label">Input Tokens</div>
+        </div>
+        <div class="token-stat">
+          <div class="token-num" id="tokOut">—</div>
+          <div class="token-label">Output Tokens</div>
+        </div>
+        <div class="token-stat">
+          <div class="token-num" id="tokTotal">—</div>
+          <div class="token-label">Total Tokens</div>
+        </div>
+        <div class="token-stat cost">
+          <div class="token-num" id="tokCost">—</div>
+          <div class="token-label">Est. Cost (USD)</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -330,6 +360,17 @@
     }
   }
 
+  function showTokenUsage(tokens) {
+    if (!tokens) return;
+    document.getElementById("tokIn").textContent    = (tokens.input_tokens ?? 0).toLocaleString();
+    document.getElementById("tokOut").textContent   = (tokens.output_tokens ?? 0).toLocaleString();
+    document.getElementById("tokTotal").textContent = (tokens.total_tokens ?? 0).toLocaleString();
+    document.getElementById("tokCost").textContent  = tokens.estimated_cost_usd != null
+      ? "$" + tokens.estimated_cost_usd.toFixed(4)
+      : "—";
+    document.getElementById("tokenSection").style.display = "";
+  }
+
   function showAnalysisResults(data) {
     document.getElementById("scoreBefore").textContent = data.ats_score;
     document.getElementById("gradeBefore").textContent = data.grade;
@@ -343,6 +384,7 @@
       const li = document.createElement("li"); li.textContent = item; ul.appendChild(li);
     });
 
+    showTokenUsage(data.tokens_used);
     document.getElementById("resultsCard").classList.add("show");
   }
 
@@ -378,6 +420,7 @@
     else { dlPdf.style.display = "none"; }
     dlRow.style.display = "flex";
 
+    showTokenUsage(data.tokens_used);
     document.getElementById("resultsCard").classList.add("show");
   }
 </script>

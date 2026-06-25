@@ -1,9 +1,39 @@
-# AI Resume Optimizer
+# AI Resume ATS Optimizer
 
-> Upload your resume → get an ATS-optimized DOCX + PDF back in seconds.
+> **Upload your resume → get an ATS-optimized DOCX + PDF back in under 30 seconds.**
 
 Powered by **Claude (Anthropic)** or **GPT-4o-mini (OpenAI)** — your choice.  
-Works as a **web app**, a **REST API**, or a **CLI tool**.
+Runs as a **web app**, **REST API**, or **CLI**. Every call reports real token counts and estimated cost.
+
+![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)
+![Claude](https://img.shields.io/badge/AI-Claude%20%7C%20GPT--4o-8B5CF6?logo=anthropic&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-F59E0B)
+
+---
+
+## How It Works
+
+```
+Resume (PDF / DOCX / TXT)
+         │
+         ▼
+  ┌─────────────┐     ┌─────────────────────┐     ┌──────────────────────┐
+  │   Parser    │────▶│    ATS Analyzer      │────▶│     AI Rewriter      │
+  │ pypdf/docx  │     │  0–100 score         │     │  STAR bullets        │
+  └─────────────┘     │  keyword gap report  │     │  keyword injection   │
+                      └─────────────────────┘     └──────────┬───────────┘
+                                                             │
+                           ┌─────────────────────────────────┤
+                           ▼                                 ▼
+                     ┌──────────┐                    ┌─────────────┐
+                     │   DOCX   │                    │     PDF     │
+                     │ Calibri  │                    │  ReportLab  │
+                     │ ATS-safe │                    │  ATS-safe   │
+                     └──────────┘                    └─────────────┘
+```
+
+Every `/analyze` and `/optimize` call returns **real token counts** and an **estimated USD cost** alongside the results.
 
 ---
 
@@ -11,12 +41,13 @@ Works as a **web app**, a **REST API**, or a **CLI tool**.
 
 | Feature | Details |
 |---|---|
-| **ATS Score** | Rates your resume 0–100 with breakdown (keywords, formatting, sections…) |
-| **AI Rewrite** | Full resume rewritten — STAR bullets, quantified achievements, ATS keywords |
-| **DOCX output** | ATS-safe Word document: Calibri font, no tables, proper heading styles |
-| **PDF output** | Clean PDF via ReportLab: same ATS rules, navy-accent professional design |
-| **Multi-provider** | Switch between Anthropic Claude and OpenAI GPT from UI or CLI |
-| **Style options** | `minimal` (1-page), `professional` (1–2 pages), `executive` (2 pages) |
+| **ATS Score** | 0–100 score with per-section breakdown — keywords, formatting, achievements, sections |
+| **AI Rewrite** | Full resume rewritten with STAR bullets, quantified achievements, and injected keywords |
+| **Token Usage** | Input / output token counts + estimated USD cost returned with every API call and shown in the UI |
+| **DOCX output** | ATS-safe Word doc — Calibri font, no tables, proper Word heading styles |
+| **PDF output** | Clean PDF via ReportLab — same ATS rules, navy-accent professional design |
+| **Multi-provider** | Switch between Anthropic Claude and OpenAI GPT from the UI, API, or CLI |
+| **Style options** | `minimal` (1 page), `professional` (1–2 pages), `executive` (2 pages) |
 | **Target role** | Tailor keyword density to a specific job title |
 | **JD matching** | Paste a job description — missing keywords are injected into the rewrite |
 
@@ -40,7 +71,7 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env — add your ANTHROPIC_API_KEY or OPENAI_API_KEY
+# Edit .env — set AI_PROVIDER and add your API key
 ```
 
 ### 3. Run the web app
@@ -49,22 +80,61 @@ cp .env.example .env
 uvicorn src.api.main:app --reload
 ```
 
-Open **http://localhost:8000** — drag-and-drop your resume and get results.
+Open **http://localhost:8000** — drag-and-drop your resume and get results instantly.
+
+---
+
+## Token Usage & Cost
+
+Every `/analyze` and `/optimize` response includes a `tokens_used` field:
+
+```json
+{
+  "tokens_used": {
+    "input_tokens": 1842,
+    "output_tokens": 612,
+    "total_tokens": 2454,
+    "estimated_cost_usd": 0.014706
+  }
+}
+```
+
+For the `/optimize` endpoint (analyze + rewrite = two LLM calls), tokens are aggregated into a single total.
+
+### Pricing table
+
+Costs are computed at response time using current model pricing:
+
+| Model | Input (per 1M tokens) | Output (per 1M tokens) |
+|---|---|---|
+| `claude-sonnet-4-6` | $3.00 | $15.00 |
+| `claude-opus-4-8` | $15.00 | $75.00 |
+| `claude-haiku-4-5` | $0.80 | $4.00 |
+| `gpt-4o-mini` | $0.15 | $0.60 |
+| `gpt-4o` | $2.50 | $10.00 |
+
+**Typical cost per resume optimization:**
+- `gpt-4o-mini` — ~$0.001–$0.005
+- `claude-sonnet-4-6` — ~$0.015–$0.040
+
+The **Web UI** shows input tokens, output tokens, total tokens, and estimated cost in the results panel after every run.
 
 ---
 
 ## Web UI
 
-The web UI is a single-page app at `http://localhost:8000`:
+The single-page app at **http://localhost:8000**:
 
 1. **Drag & drop** your PDF, DOCX, or TXT resume
 2. Optionally enter a **target role** and paste a **job description**
 3. Pick **output format** (DOCX / PDF / Both) and **style**
-4. Choose your **AI provider** (Anthropic or OpenAI)
-5. Click **Optimize** — the UI shows:
+4. Choose your **AI provider** (Anthropic Claude or OpenAI GPT)
+5. Click **Optimize** — results show:
    - Before / after ATS score
-   - Keywords added, critical issues fixed
+   - Keywords added (green chips)
+   - Improvements applied (checklist)
    - Download buttons for DOCX and PDF
+   - **Token usage: input, output, total, and estimated cost**
 
 ---
 
@@ -74,21 +144,27 @@ The web UI is a single-page app at `http://localhost:8000`:
 # Basic usage
 python scripts/optimize.py my_resume.pdf
 
-# With options
+# Full options
 python scripts/optimize.py my_resume.pdf \
   --role "Senior AI Engineer" \
   --format pdf \
   --style professional \
   --provider anthropic
 
-# Just get the ATS score (no rewrite)
+# Score only (no rewrite)
 python scripts/optimize.py my_resume.pdf --score-only
 
-# Use a job description file
+# With a job description file
 python scripts/optimize.py my_resume.docx --jd job_description.txt
 
-# Specify output directory
+# Custom output directory
 python scripts/optimize.py my_resume.pdf --output-dir ./optimized
+```
+
+The CLI prints a token usage summary at the end of each full optimization run:
+
+```
+  Token Usage:  3,866 in / 1,401 out / 5,267 total  (est. $0.0326 USD)
 ```
 
 ### CLI options
@@ -96,19 +172,20 @@ python scripts/optimize.py my_resume.pdf --output-dir ./optimized
 | Option | Values | Default | Description |
 |---|---|---|---|
 | `resume` | path | — | Resume file (PDF, DOCX, TXT) |
-| `--role` / `-r` | text | "" | Target job title |
-| `--jd` | path | "" | Path to job description .txt file |
+| `--role` / `-r` | text | `""` | Target job title |
+| `--jd` | path | `""` | Path to job description .txt file |
 | `--format` / `-f` | `docx` `pdf` `both` | `both` | Output format |
 | `--style` / `-s` | `minimal` `professional` `executive` | `professional` | Page style |
 | `--provider` | `anthropic` `openai` | from `.env` | Override AI provider |
-| `--score-only` | flag | off | Only score, no rewrite |
-| `--output-dir` / `-o` | path | `outputs/` | Where to save generated files |
+| `--score-only` | flag | off | Score only — no rewrite |
+| `--output-dir` / `-o` | path | `outputs/` | Where to save files |
 
 ---
 
 ## REST API
 
 ### `POST /analyze`
+
 ATS analysis only — no rewrite.
 
 ```bash
@@ -123,17 +200,31 @@ curl -X POST http://localhost:8000/analyze \
 {
   "ats_score": 68,
   "grade": "Needs Work",
-  "score_breakdown": {"keyword_match": 65, "formatting": 80, ...},
+  "score_breakdown": {
+    "keyword_match": 65,
+    "formatting": 80,
+    "experience_quality": 70,
+    "quantified_achievements": 55
+  },
   "critical_issues": ["Missing quantified achievements"],
   "improvements": ["Add metrics to bullets", "Include Docker in skills"],
   "missing_keywords": ["Docker", "Kubernetes", "CI/CD"],
   "found_keywords": ["Python", "FastAPI", "PostgreSQL"],
-  "strengths": ["Strong technical skills section"]
+  "strengths": ["Strong technical skills section"],
+  "tokens_used": {
+    "input_tokens": 1524,
+    "output_tokens": 489,
+    "total_tokens": 2013,
+    "estimated_cost_usd": 0.011895
+  }
 }
 ```
 
+---
+
 ### `POST /optimize`
-Full pipeline: analyze → rewrite → generate files.
+
+Full pipeline: parse → analyze → rewrite → generate files.
 
 ```bash
 curl -X POST http://localhost:8000/optimize \
@@ -151,19 +242,33 @@ curl -X POST http://localhost:8000/optimize \
   "ats_score_after": 93,
   "grade_before": "Needs Work",
   "grade_after": "Excellent",
-  "improvements_applied": ["Added metrics to all bullets", ...],
-  "missing_keywords_added": ["Docker", "Kubernetes", ...],
+  "improvements_applied": ["Added metrics to all bullets", "Injected 8 missing keywords"],
+  "missing_keywords_added": ["Docker", "Kubernetes", "CI/CD", "MLOps"],
   "download_docx": "/download/a3f8c012/docx",
   "download_pdf": "/download/a3f8c012/pdf",
-  "message": "Resume optimized successfully."
+  "message": "Resume optimized successfully. ATS score improved from 68 → 93.",
+  "tokens_used": {
+    "input_tokens": 3866,
+    "output_tokens": 1401,
+    "total_tokens": 5267,
+    "estimated_cost_usd": 0.032625
+  }
 }
 ```
 
+---
+
 ### `GET /download/{job_id}/{fmt}`
-Download a generated file (`fmt`: `docx` or `pdf`).
+
+Download a generated file. `fmt` must be `docx` or `pdf`.
 
 ### `GET /health`
-Check API status and configured provider.
+
+Returns current provider and model.
+
+```json
+{ "status": "healthy", "provider": "openai", "model": "gpt-4o-mini" }
+```
 
 ---
 
@@ -173,24 +278,24 @@ Check API status and configured provider.
 ai-resume-optimizer/
 ├── src/
 │   ├── api/
-│   │   └── main.py              # FastAPI app + endpoints
+│   │   └── main.py              # FastAPI app + all endpoints
 │   ├── generators/
 │   │   ├── docx_generator.py    # ATS-safe Word document generator
 │   │   └── pdf_generator.py     # PDF generator (ReportLab)
 │   ├── optimizer/
-│   │   ├── analyzer.py          # ATS scoring + ATSReport
+│   │   ├── analyzer.py          # ATS scoring, token tracking, ATSReport
 │   │   ├── prompts.py           # LLM prompt templates
-│   │   └── rewriter.py          # AI resume rewrite + ResumeData model
+│   │   └── rewriter.py          # AI resume rewrite, ResumeData model
 │   ├── parsers/
-│   │   └── resume_parser.py     # PDF/DOCX/TXT parser
+│   │   └── resume_parser.py     # PDF / DOCX / TXT parser
 │   └── utils/
-│       └── config.py            # Settings (pydantic-settings)
+│       └── config.py            # Pydantic settings from .env
 ├── scripts/
 │   └── optimize.py              # CLI tool (argparse)
 ├── static/
 │   └── index.html               # Single-page web UI
 ├── tests/
-│   └── test_optimizer.py        # Unit tests (pytest, mocked LLM)
+│   └── test_optimizer.py        # Unit tests — all LLM calls mocked
 ├── .env.example                 # Config template
 ├── requirements.txt
 └── README.md
@@ -203,27 +308,27 @@ ai-resume-optimizer/
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `AI_PROVIDER` | yes | `anthropic` | `anthropic` or `openai` |
-| `ANTHROPIC_API_KEY` | if anthropic | — | From console.anthropic.com |
+| `ANTHROPIC_API_KEY` | if anthropic | — | From [console.anthropic.com](https://console.anthropic.com) |
 | `ANTHROPIC_MODEL` | no | `claude-sonnet-4-6` | Claude model ID |
-| `OPENAI_API_KEY` | if openai | — | From platform.openai.com |
+| `OPENAI_API_KEY` | if openai | — | From [platform.openai.com](https://platform.openai.com) |
 | `OPENAI_MODEL` | no | `gpt-4o-mini` | OpenAI model ID |
-| `OUTPUT_DIR` | no | `outputs` | Generated file directory |
-| `MAX_RESUME_SIZE_MB` | no | `5` | Upload size limit |
+| `OUTPUT_DIR` | no | `outputs` | Directory for generated DOCX/PDF files |
+| `MAX_RESUME_SIZE_MB` | no | `10` | Max upload size in MB |
 
 ---
 
 ## ATS Rules Applied
 
-The generated DOCX and PDF follow strict ATS-compatibility rules:
+All generated DOCX and PDF files follow strict ATS-compatibility rules:
 
-- **No tables or text boxes** — parsers skip content inside tables
+- **No tables or text boxes** — ATS parsers skip content inside tables
 - **No multi-column layout** — single-column only
-- **Standard fonts** — Calibri (DOCX), Helvetica (PDF)
-- **Word heading styles** — not custom formatted text
-- **Bullet lists** — proper Word list styles, not manual hyphens
-- **No headers/footers** — content that may be skipped
+- **Standard fonts** — Calibri 10pt (DOCX), Helvetica (PDF)
+- **Word heading styles** — proper `Heading 1/2`, not just bold text
+- **Bullet lists** — Word list styles, not manual hyphens or dashes
+- **No headers or footers** — content in those areas may be skipped
 - **No images or graphics**
-- **Machine-readable contact info** — plain text, not fancy icons
+- **Plain-text contact info** — no icon fonts, no tables for layout
 
 ---
 
@@ -233,7 +338,7 @@ The generated DOCX and PDF follow strict ATS-compatibility rules:
 pytest tests/ -v
 ```
 
-All tests mock LLM calls — no API key required for testing.
+All LLM calls are mocked — no API key required to run the test suite.
 
 ---
 
