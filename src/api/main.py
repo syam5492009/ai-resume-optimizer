@@ -96,7 +96,7 @@ async def root():
     """Serve the web UI."""
     html_path = static_dir / "index.html"
     if html_path.exists():
-        return HTMLResponse(html_path.read_text())
+        return HTMLResponse(html_path.read_text(encoding="utf-8"))
     return HTMLResponse("<h1>AI Resume Optimizer API</h1><p>Visit /docs for the API.</p>")
 
 
