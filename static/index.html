@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Resume ATS Optimizer</title>
+  <style>
+    :root {
+      --navy: #1F456E; --light-navy: #2d5f96; --bg: #F4F7FB;
+      --card: #ffffff; --text: #222; --muted: #666;
+      --green: #1a7a4a; --orange: #c85a00; --red: #b91c1c;
+      --border: #dde3ec; --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header { background: var(--navy); color: white; padding: 18px 32px; display: flex; align-items: center; gap: 14px; }
+    header h1 { font-size: 1.4rem; font-weight: 700; }
+    header p  { font-size: 0.85rem; opacity: 0.8; margin-top: 2px; }
+    .badge { background: #ffffff22; border-radius: 20px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; }
+
+    main { max-width: 860px; margin: 32px auto; padding: 0 20px 60px; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; margin-bottom: 24px; box-shadow: 0 2px 8px #0001; }
+    .card h2 { font-size: 1.05rem; font-weight: 700; color: var(--navy); margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+
+    /* Drop zone */
+    .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 36px 24px; text-align: center; cursor: pointer; transition: all .2s; background: #fafbfd; }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: var(--navy); background: #eef3fa; }
+    .drop-zone input { display: none; }
+    .drop-zone .icon { font-size: 2.2rem; margin-bottom: 10px; }
+    .drop-zone p { color: var(--muted); font-size: 0.9rem; }
+    .drop-zone p b { color: var(--navy); }
+    .file-name { margin-top: 10px; font-weight: 600; color: var(--navy); font-size: 0.9rem; }
+
+    /* Options grid */
+    .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 580px) { .options-grid { grid-template-columns: 1fr; } }
+
+    label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+    input[type=text], select, textarea {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 0.92rem; font-family: inherit; color: var(--text); background: white;
+      transition: border-color .15s;
+    }
+    input[type=text]:focus, select:focus, textarea:focus { outline: none; border-color: var(--navy); }
+    textarea { min-height: 90px; resize: vertical; }
+    .full-col { grid-column: 1 / -1; }
+
+    /* Segment control */
+    .seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .seg button { flex: 1; padding: 8px; background: white; border: none; cursor: pointer; font-size: 0.88rem; color: var(--muted); font-family: inherit; transition: all .15s; }
+    .seg button.active { background: var(--navy); color: white; font-weight: 600; }
+
+    /* Action buttons */
+    .actions { display: flex; gap: 12px; margin-top: 4px; }
+    .btn { padding: 12px 28px; border-radius: 7px; font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none; transition: all .15s; font-family: inherit; }
+    .btn-primary { background: var(--navy); color: white; flex: 1; }
+    .btn-primary:hover { background: var(--light-navy); }
+    .btn-secondary { background: white; color: var(--navy); border: 2px solid var(--navy); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* Progress */
+    .progress { display: none; margin-top: 16px; }
+    .progress.show { display: block; }
+    .progress-bar { height: 6px; background: #e0e6f0; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+    .progress-fill { height: 100%; background: var(--navy); border-radius: 3px; width: 0; transition: width .4s ease; }
+    .progress-label { font-size: 0.85rem; color: var(--muted); }
+
+    /* Results */
+    .results { display: none; }
+    .results.show { display: block; }
+
+    .score-row { display: flex; gap: 20px; margin-bottom: 20px; }
+    .score-box { flex: 1; text-align: center; padding: 20px; border-radius: var(--radius); }
+    .score-box.before { background: #fff3e0; border: 1px solid #ffd0a0; }
+    .score-box.after  { background: #e8f5e9; border: 1px solid #a5d6a7; }
+    .score-num { font-size: 2.8rem; font-weight: 800; line-height: 1; }
+    .score-box.before .score-num { color: var(--orange); }
+    .score-box.after  .score-num { color: var(--green); }
+    .score-label { font-size: 0.8rem; color: var(--muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; }
+    .grade { font-size: 0.88rem; font-weight: 700; margin-top: 4px; }
+
+    .kw-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+    .chip { padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+    .chip-added { background: #e8f5e9; color: #1a7a4a; border: 1px solid #a5d6a7; }
+    .chip-issue { background: #fff3e0; color: #c85a00; border: 1px solid #ffd0a0; }
+
+    .improvement-list { list-style: none; }
+    .improvement-list li { padding: 6px 0; font-size: 0.9rem; border-bottom: 1px solid #f0f2f5; display: flex; gap: 8px; }
+    .improvement-list li::before { content: '✓'; color: var(--green); font-weight: 700; }
+
+    .download-row { display: flex; gap: 12px; margin-top: 16px; }
+    .btn-download { padding: 12px 24px; border-radius: 7px; font-size: 0.95rem; font-weight: 700; cursor: pointer; border: 2px solid var(--navy); background: white; color: var(--navy); flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; transition: all .15s; }
+    .btn-download:hover { background: var(--navy); color: white; }
+    .btn-download.pdf { border-color: #b91c1c; color: #b91c1c; }
+    .btn-download.pdf:hover { background: #b91c1c; color: white; }
+
+    .error-box { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--radius); padding: 14px 18px; color: #b91c1c; font-size: 0.9rem; margin-top: 16px; display: none; }
+    .error-box.show { display: block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>AI Resume ATS Optimizer</h1>
+    <p>Upload your resume → get an ATS-optimized version powered by Claude / GPT-4o</p>
+  </div>
+  <span class="badge">FREE &amp; OPEN SOURCE</span>
+</header>
+
+<main>
+
+  <!-- Upload card -->
+  <div class="card">
+    <h2>📄 Upload Your Resume</h2>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">☁️</div>
+      <p>Drag & drop your resume here or <b>click to browse</b></p>
+      <p style="margin-top:6px;font-size:0.8rem">Supports PDF, DOCX, DOC, TXT · Max 10 MB</p>
+      <input type="file" id="fileInput" accept=".pdf,.docx,.doc,.txt" />
+      <div class="file-name" id="fileName"></div>
+    </div>
+  </div>
+
+  <!-- Options card -->
+  <div class="card">
+    <h2>⚙️ Optimization Options</h2>
+    <div class="options-grid">
+
+      <div>
+        <label>Target Role (optional)</label>
+        <input type="text" id="targetRole" placeholder="e.g. Senior Software Engineer" />
+      </div>
+
+      <div>
+        <label>Output Format</label>
+        <div class="seg" id="fmtSeg">
+          <button class="active" data-val="both">Both</button>
+          <button data-val="docx">DOCX</button>
+          <button data-val="pdf">PDF</button>
+        </div>
+      </div>
+
+      <div>
+        <label>Resume Style</label>
+        <div class="seg" id="styleSeg">
+          <button data-val="minimal">Minimal<br><small style="font-weight:400">1 page</small></button>
+          <button class="active" data-val="professional">Professional<br><small style="font-weight:400">1–2 pages</small></button>
+          <button data-val="executive">Executive<br><small style="font-weight:400">2 pages</small></button>
+        </div>
+      </div>
+
+      <div>
+        <label>AI Provider</label>
+        <select id="provider">
+          <option value="anthropic">Anthropic — Claude (Recommended)</option>
+          <option value="openai">OpenAI — GPT-4o</option>
+        </select>
+      </div>
+
+      <div class="full-col">
+        <label>Job Description (optional — paste full JD for best results)</label>
+        <textarea id="jobDesc" placeholder="Paste the job description here to maximize keyword matching..."></textarea>
+      </div>
+
+    </div>
+
+    <div class="actions" style="margin-top:20px">
+      <button class="btn btn-secondary" onclick="analyzeOnly()" id="analyzeBtn">Score Only</button>
+      <button class="btn btn-primary" onclick="optimize()" id="optimizeBtn">Optimize Resume →</button>
+    </div>
+
+    <div class="progress" id="progress">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel">Parsing resume...</div>
+    </div>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <!-- Results card -->
+  <div class="card results" id="resultsCard">
+    <h2>📊 Results</h2>
+    <div class="score-row">
+      <div class="score-box before">
+        <div class="score-num" id="scoreBefore">—</div>
+        <div class="score-label">Before</div>
+        <div class="grade" id="gradeBefore"></div>
+      </div>
+      <div class="score-box after" id="scoreAfterBox" style="display:none">
+        <div class="score-num" id="scoreAfter">—</div>
+        <div class="score-label">After Optimization</div>
+        <div class="grade" id="gradeAfter"></div>
+      </div>
+    </div>
+
+    <div id="keywordsAdded" style="margin-bottom:16px;display:none">
+      <label>Keywords Added</label>
+      <div class="kw-chips" id="kwChips"></div>
+    </div>
+
+    <div id="improvementsSection" style="margin-bottom:16px">
+      <label>Improvements Applied</label>
+      <ul class="improvement-list" id="improvementList"></ul>
+    </div>
+
+    <div class="download-row" id="downloadRow" style="display:none">
+      <a class="btn-download" id="dlDocx" href="#" target="_blank">⬇ Download DOCX</a>
+      <a class="btn-download pdf" id="dlPdf" href="#" target="_blank">⬇ Download PDF</a>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  let selectedFile = null;
+  let outputFormat = "both";
+  let resumeStyle = "professional";
+
+  // File drop
+  const dropZone = document.getElementById("dropZone");
+  const fileInput = document.getElementById("fileInput");
+
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault(); dropZone.classList.remove("drag-over");
+    const f = e.dataTransfer.files[0]; if (f) setFile(f);
+  });
+  fileInput.addEventListener("change", e => { if (e.target.files[0]) setFile(e.target.files[0]); });
+
+  function setFile(f) {
+    selectedFile = f;
+    document.getElementById("fileName").textContent = "📎 " + f.name + " (" + (f.size / 1024).toFixed(0) + " KB)";
+    dropZone.style.borderColor = "var(--navy)";
+  }
+
+  // Segment controls
+  document.querySelectorAll("#fmtSeg button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#fmtSeg button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active"); outputFormat = btn.dataset.val;
+    });
+  });
+  document.querySelectorAll("#styleSeg button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#styleSeg button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active"); resumeStyle = btn.dataset.val;
+    });
+  });
+
+  function setProgress(pct, label) {
+    document.getElementById("progress").classList.add("show");
+    document.getElementById("progressFill").style.width = pct + "%";
+    document.getElementById("progressLabel").textContent = label;
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("errorBox");
+    el.textContent = msg; el.classList.add("show");
+  }
+
+  function clearError() { document.getElementById("errorBox").classList.remove("show"); }
+
+  function buildForm(endpoint) {
+    if (!selectedFile) { showError("Please upload a resume file first."); return null; }
+    clearError();
+    const fd = new FormData();
+    fd.append("resume", selectedFile);
+    fd.append("target_role", document.getElementById("targetRole").value);
+    fd.append("job_description", document.getElementById("jobDesc").value);
+    return fd;
+  }
+
+  async function analyzeOnly() {
+    const fd = buildForm("/analyze"); if (!fd) return;
+    document.getElementById("analyzeBtn").disabled = true;
+    document.getElementById("optimizeBtn").disabled = true;
+    setProgress(40, "Analyzing ATS compatibility...");
+
+    try {
+      const res = await fetch("/analyze", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { showError(data.detail || "Analysis failed."); return; }
+
+      setProgress(100, "Done!");
+      showAnalysisResults(data);
+    } catch(e) {
+      showError("Network error: " + e.message);
+    } finally {
+      document.getElementById("analyzeBtn").disabled = false;
+      document.getElementById("optimizeBtn").disabled = false;
+    }
+  }
+
+  async function optimize() {
+    const fd = buildForm("/optimize"); if (!fd) return;
+    fd.append("output_format", outputFormat);
+    fd.append("style", resumeStyle);
+
+    document.getElementById("analyzeBtn").disabled = true;
+    document.getElementById("optimizeBtn").disabled = true;
+
+    const steps = [
+      [15, "Parsing resume..."],
+      [35, "Running ATS analysis..."],
+      [60, "Rewriting with AI..."],
+      [85, "Generating files..."],
+    ];
+    let si = 0;
+    const interval = setInterval(() => {
+      if (si < steps.length) { setProgress(...steps[si++]); }
+    }, 1800);
+
+    try {
+      const res = await fetch("/optimize", { method: "POST", body: fd });
+      const data = await res.json();
+      clearInterval(interval);
+      if (!res.ok) { showError(data.detail || "Optimization failed."); return; }
+
+      setProgress(100, "Done! Resume optimized.");
+      showOptimizeResults(data);
+    } catch(e) {
+      clearInterval(interval);
+      showError("Network error: " + e.message);
+    } finally {
+      document.getElementById("analyzeBtn").disabled = false;
+      document.getElementById("optimizeBtn").disabled = false;
+    }
+  }
+
+  function showAnalysisResults(data) {
+    document.getElementById("scoreBefore").textContent = data.ats_score;
+    document.getElementById("gradeBefore").textContent = data.grade;
+    document.getElementById("scoreAfterBox").style.display = "none";
+    document.getElementById("keywordsAdded").style.display = "none";
+    document.getElementById("downloadRow").style.display = "none";
+
+    const ul = document.getElementById("improvementList");
+    ul.innerHTML = "";
+    [...data.critical_issues, ...data.improvements].slice(0, 7).forEach(item => {
+      const li = document.createElement("li"); li.textContent = item; ul.appendChild(li);
+    });
+
+    document.getElementById("resultsCard").classList.add("show");
+  }
+
+  function showOptimizeResults(data) {
+    document.getElementById("scoreBefore").textContent = data.ats_score_before;
+    document.getElementById("gradeBefore").textContent = data.grade_before;
+    document.getElementById("scoreAfter").textContent = data.ats_score_after;
+    document.getElementById("gradeAfter").textContent = data.grade_after;
+    document.getElementById("scoreAfterBox").style.display = "";
+
+    if (data.missing_keywords_added?.length) {
+      const chips = document.getElementById("kwChips");
+      chips.innerHTML = "";
+      data.missing_keywords_added.forEach(kw => {
+        const c = document.createElement("span");
+        c.className = "chip chip-added"; c.textContent = kw; chips.appendChild(c);
+      });
+      document.getElementById("keywordsAdded").style.display = "";
+    }
+
+    const ul = document.getElementById("improvementList");
+    ul.innerHTML = "";
+    data.improvements_applied.forEach(item => {
+      const li = document.createElement("li"); li.textContent = item; ul.appendChild(li);
+    });
+
+    const dlRow = document.getElementById("downloadRow");
+    const dlDocx = document.getElementById("dlDocx");
+    const dlPdf = document.getElementById("dlPdf");
+    if (data.download_docx) { dlDocx.href = data.download_docx; dlDocx.style.display = ""; }
+    else { dlDocx.style.display = "none"; }
+    if (data.download_pdf) { dlPdf.href = data.download_pdf; dlPdf.style.display = ""; }
+    else { dlPdf.style.display = "none"; }
+    dlRow.style.display = "flex";
+
+    document.getElementById("resultsCard").classList.add("show");
+  }
+</script>
+</body>
+</html>
